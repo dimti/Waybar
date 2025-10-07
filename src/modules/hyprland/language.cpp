@@ -11,8 +11,6 @@ namespace waybar::modules::hyprland {
 
 Language::Language(const std::string& id, const Bar& bar, const Json::Value& config)
     : ALabel(config, "language", id, "{}", 0, true), bar_(bar), m_ipc(IPC::inst()) {
-  modulesReady = true;
-
   // get the active layout when open
   initLanguage();
 
@@ -27,25 +25,6 @@ Language::~Language() {
   m_ipc.unregisterForIPC(this);
   // wait for possible event handler to finish
   std::lock_guard<std::mutex> lg(mutex_);
-}
-
-void Language::onEvent(const std::string& ev) {
-  std::lock_guard<std::mutex> lg(mutex_);
-  std::string kbName(begin(ev) + ev.find_last_of('>') + 1, begin(ev) + ev.find_first_of(','));
-  auto layoutName = ev.substr(ev.find_last_of(',') + 1);
-
-  if (config_.isMember("keyboard-name") && kbName != config_["keyboard-name"].asString())
-    return;  // ignore
-
-  layoutName = waybar::util::sanitize_string(layoutName);
-
-  label_.get_style_context()->remove_class(layout_.short_name);
-  layout_ = getLayout(layoutName);
-  label_.get_style_context()->add_class(layout_.short_name);
-
-  spdlog::debug("hyprland language onevent with {}", layoutName);
-
-  dp.emit();
 }
 
 auto Language::update() -> void {
@@ -80,6 +59,36 @@ auto Language::update() -> void {
   }
 
   ALabel::update();
+}
+
+void Language::onEvent(const std::string& ev) {
+  std::lock_guard<std::mutex> lg(mutex_);
+  std::string kbName(begin(ev) + ev.find_last_of('>') + 1, begin(ev) + ev.find_first_of(','));
+
+  // Last comma before variants parenthesis, eg:
+  // activelayout>>micro-star-int'l-co.,-ltd.-msi-gk50-elite-gaming-keyboard,English (US, intl.,
+  // with dead keys)
+  std::string beforeParenthesis;
+  auto parenthesisPos = ev.find_last_of('(');
+  if (parenthesisPos == std::string::npos) {
+    beforeParenthesis = ev;
+  } else {
+    beforeParenthesis = std::string(begin(ev), begin(ev) + parenthesisPos);
+  }
+  auto layoutName = ev.substr(beforeParenthesis.find_last_of(',') + 1);
+
+  if (config_.isMember("keyboard-name") && kbName != config_["keyboard-name"].asString())
+    return;  // ignore
+
+  layoutName = waybar::util::sanitize_string(layoutName);
+
+  label_.get_style_context()->remove_class(layout_.short_name);
+  layout_ = getLayout(layoutName);
+  label_.get_style_context()->add_class(layout_.short_name);
+
+  spdlog::debug("hyprland language onevent with {}", layoutName);
+
+  dp.emit();
 }
 
 void Language::initLanguage() {
