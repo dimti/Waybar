@@ -29,6 +29,25 @@ Language::~Language() {
   std::lock_guard<std::mutex> lg(mutex_);
 }
 
+void Language::onEvent(const std::string& ev) {
+  std::lock_guard<std::mutex> lg(mutex_);
+  std::string kbName(begin(ev) + ev.find_last_of('>') + 1, begin(ev) + ev.find_first_of(','));
+  auto layoutName = ev.substr(ev.find_last_of(',') + 1);
+
+  if (config_.isMember("keyboard-name") && kbName != config_["keyboard-name"].asString())
+    return;  // ignore
+
+  layoutName = waybar::util::sanitize_string(layoutName);
+
+  label_.get_style_context()->remove_class(layout_.short_name);
+  layout_ = getLayout(layoutName);
+  label_.get_style_context()->add_class(layout_.short_name);
+
+  spdlog::debug("hyprland language onevent with {}", layoutName);
+
+  dp.emit();
+}
+
 auto Language::update() -> void {
   std::lock_guard<std::mutex> lg(mutex_);
 
@@ -61,23 +80,6 @@ auto Language::update() -> void {
   }
 
   ALabel::update();
-}
-
-void Language::onEvent(const std::string& ev) {
-  std::lock_guard<std::mutex> lg(mutex_);
-  std::string kbName(begin(ev) + ev.find_last_of('>') + 1, begin(ev) + ev.find_first_of(','));
-  auto layoutName = ev.substr(ev.find_last_of(',') + 1);
-
-  if (config_.isMember("keyboard-name") && kbName != config_["keyboard-name"].asString())
-    return;  // ignore
-
-  layoutName = waybar::util::sanitize_string(layoutName);
-
-  layout_ = getLayout(layoutName);
-
-  spdlog::debug("hyprland language onevent with {}", layoutName);
-
-  dp.emit();
 }
 
 void Language::initLanguage() {

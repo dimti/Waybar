@@ -3,6 +3,7 @@
 vgcore.*
 /.vscode
 /.idea
+/*.kdev4
 /.cache
 *.swp
 packagecache
